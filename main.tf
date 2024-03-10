@@ -1,5 +1,5 @@
 resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
-  for_each            = { for vm in var.scale_sets : vm.name => vm }
+  for_each            = {for vm in var.scale_sets : vm.name => vm}
   name                = each.value.name
   resource_group_name = var.rg_name
   location            = var.location
@@ -124,7 +124,8 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
     dynamic "diff_disk_settings" {
       for_each = each.value.os_disk.diff_disk_settings != null ? [each.value.os_disk.diff_disk_settings] : []
       content {
-        option = diff_disk_settings.value.option
+        option    = diff_disk_settings.value.option
+        placement = diff_disk_settings.value.placement
       }
     }
   }
@@ -158,14 +159,13 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
   }
 
   dynamic "boot_diagnostics" {
-    for_each = each.value.boot_diagnostics != null && each.value.boot_diagnostics != {} ? [
-      each.value.boot_diagnostics
-    ] : []
+    for_each = each.value.boot_diagnostics_storage_account_uri != null ? [
+      each.value.boot_diagnostics_storage_account_uri
+    ] : [null]
     content {
-      storage_account_uri = boot_diagnostics.value.storage_account_uri
+      storage_account_uri = boot_diagnostics.value
     }
   }
-
 
   dynamic "additional_capabilities" {
     for_each = each.value.additional_capabilities != null && each.value.additional_capabilities != {} ? [
@@ -213,11 +213,17 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
           name                                         = ip_configuration.value.name
           primary                                      = ip_configuration.value.primary
           application_gateway_backend_address_pool_ids = ip_configuration.value.application_gateway_backend_address_pool_ids
-          application_security_group_ids               = toset(ip_configuration.value.application_security_group_ids)
-          load_balancer_backend_address_pool_ids       = ip_configuration.value.load_balancer_backend_address_pool_ids
-          load_balancer_inbound_nat_rules_ids          = ip_configuration.value.load_balancer_inbound_nat_rules_ids
-          version                                      = ip_configuration.value.version
-          subnet_id                                    = ip_configuration.value.subnet_id
+          application_security_group_ids               = each.value.create_asg ? (
+          ip_configuration.value.application_security_group_ids != null ?
+          distinct(concat(ip_configuration.value.application_security_group_ids, [
+            azurerm_application_security_group.asg[each.key].id
+          ])) :
+          [azurerm_application_security_group.asg[each.key].id]
+          ) : []
+          load_balancer_backend_address_pool_ids = ip_configuration.value.load_balancer_backend_address_pool_ids
+          load_balancer_inbound_nat_rules_ids    = ip_configuration.value.load_balancer_inbound_nat_rules_ids
+          version                                = ip_configuration.value.version
+          subnet_id                              = ip_configuration.value.subnet_id
 
           dynamic "public_ip_address" {
             for_each = ip_configuration.value.public_ip_address != null && ip_configuration.value.public_ip_address != {} ? [
@@ -345,13 +351,13 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
 
 module "os_calculator" {
   source       = "libre-devops/windows-os-sku-calculator/azurerm"
-  for_each     = { for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image, null) == true }
+  for_each     = {for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image, null) == true}
   vm_os_simple = each.value.vm_os_simple
 }
 
 module "os_calculator_with_plan" {
   source       = "libre-devops/windows-os-sku-with-plan-calculator/azurerm"
-  for_each     = { for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image_with_plan, null) == true }
+  for_each     = {for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image_with_plan, null) == true}
   vm_os_simple = each.value.vm_os_simple
 }
 
@@ -375,4 +381,13 @@ resource "azurerm_marketplace_agreement" "plan_acceptance_custom" {
   publisher = lookup(each.value.plan, "publisher", null)
   offer     = lookup(each.value.plan, "product", null)
   plan      = lookup(each.value.plan, "name", null)
+}
+
+resource "azurerm_application_security_group" "asg" {
+  for_each = {for vm in var.scale_sets : vm.name => vm if vm.create_asg == true}
+
+  name                = each.value.asg_name != null ? each.value.asg_name : "asg-${each.value.name}"
+  location            = var.location
+  resource_group_name = var.rg_name
+  tags                = var.tags
 }

@@ -86,23 +86,23 @@ module "nsg" {
     }
   }
 }
-
-module "bastion" {
-  source = "libre-devops/bastion/azurerm"
-
-  rg_name  = module.rg.rg_name
-  location = module.rg.rg_location
-  tags     = module.rg.rg_tags
-
-  bastion_host_name                  = "bst-${var.short}-${var.loc}-${var.env}-01"
-  create_bastion_nsg                 = true
-  create_bastion_nsg_rules           = true
-  create_bastion_subnet              = false
-  external_subnet_id                 = module.network.subnets_ids["AzureBastionSubnet"]
-  bastion_subnet_target_vnet_name    = module.network.vnet_name
-  bastion_subnet_target_vnet_rg_name = module.network.vnet_rg_name
-  bastion_subnet_range               = "10.0.1.0/27"
-}
+#
+#module "bastion" {
+#  source = "libre-devops/bastion/azurerm"
+#
+#  rg_name  = module.rg.rg_name
+#  location = module.rg.rg_location
+#  tags     = module.rg.rg_tags
+#
+#  bastion_host_name                  = "bst-${var.short}-${var.loc}-${var.env}-01"
+#  create_bastion_nsg                 = true
+#  create_bastion_nsg_rules           = true
+#  create_bastion_subnet              = false
+#  external_subnet_id                 = module.network.subnets_ids["AzureBastionSubnet"]
+#  bastion_subnet_target_vnet_name    = module.network.vnet_name
+#  bastion_subnet_target_vnet_rg_name = module.network.vnet_rg_name
+#  bastion_subnet_range               = "10.0.1.0/27"
+#}
 
 resource "azurerm_application_security_group" "server_asg" {
   resource_group_name = module.rg.rg_name
@@ -112,6 +112,14 @@ resource "azurerm_application_security_group" "server_asg" {
   name = "asg-${var.short}-${var.loc}-${var.env}-01"
 }
 
+
+resource "azurerm_user_assigned_identity" "server_uid" {
+  location            = module.rg.rg_location
+  resource_group_name = module.rg.rg_name
+  tags                = module.rg.rg_tags
+
+  name = "uid-${var.short}-${var.loc}-${var.env}-01"
+}
 
 locals {
   name       = "vmss-${var.short}-${var.loc}-${var.env}01"
@@ -134,12 +142,16 @@ module "windows_vm_scale_set" {
       computer_name_prefix            = "vmss1"
       admin_username                  = "Local${title(var.short)}${title(var.env)}Admin"
       admin_password                  = data.azurerm_key_vault_secret.admin_pwd.value
-      instances                       = 2
+      instances                       = 1
       sku                             = "Standard_B2ms"
       vm_os_simple                    = "WindowsServer2022AzureEditionGen2"
       disable_password_authentication = true
       overprovision                   = true
       upgrade_mode                    = "Manual"
+      create_asg                      = true
+
+      identity_type = "SystemAssigned, UserAssigned"
+      identity_ids  = [azurerm_user_assigned_identity.server_uid.id]
       network_interface = [
         {
           name                          = "nic-${local.name}"
@@ -147,9 +159,10 @@ module "windows_vm_scale_set" {
           enable_accelerated_networking = false
           ip_configuration = [
             {
-              name      = "ipconfig-${local.name}"
-              primary   = true
-              subnet_id = module.network.subnets_ids["subnet1"]
+              name                           = "ipconfig-${local.name}"
+              primary                        = true
+              subnet_id                      = module.network.subnets_ids["subnet1"]
+              application_security_group_ids = [azurerm_application_security_group.server_asg.id]
             }
           ]
         }
@@ -179,7 +192,6 @@ No requirements.
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_bastion"></a> [bastion](#module\_bastion) | libre-devops/bastion/azurerm | n/a |
 | <a name="module_network"></a> [network](#module\_network) | libre-devops/network/azurerm | n/a |
 | <a name="module_nsg"></a> [nsg](#module\_nsg) | libre-devops/nsg/azurerm | n/a |
 | <a name="module_rg"></a> [rg](#module\_rg) | libre-devops/rg/azurerm | n/a |
@@ -192,6 +204,7 @@ No requirements.
 | Name | Type |
 |------|------|
 | [azurerm_application_security_group.server_asg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/application_security_group) | resource |
+| [azurerm_user_assigned_identity.server_uid](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/user_assigned_identity) | resource |
 | [random_string.entropy](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string) | resource |
 | [azurerm_client_config.current_creds](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/client_config) | data source |
 | [azurerm_key_vault.mgmt_kv](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/key_vault) | data source |
