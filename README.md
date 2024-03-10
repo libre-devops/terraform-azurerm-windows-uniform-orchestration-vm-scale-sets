@@ -1,149 +1,380 @@
 ```hcl
-module "rg" {
-  source = "registry.terraform.io/libre-devops/rg/azurerm"
+resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
+  for_each            = { for vm in var.scale_sets : vm.name => vm }
+  name                = each.value.name
+  resource_group_name = var.rg_name
+  location            = var.location
+  tags                = var.tags
+  admin_username      = each.value.admin_username
+  admin_password      = each.value.admin_password
 
-  rg_name  = "rg-${var.short}-${var.loc}-${terraform.workspace}-build" // rg-ldo-euw-dev-build
-  location = local.location                                            // compares var.loc with the var.regions var to match a long-hand name, in this case, "euw", so "westeurope"
-  tags     = local.tags
+  computer_name_prefix                              = try(each.value.computer_name_prefix, null)
+  edge_zone                                         = try(each.value.edge_zone, null)
+  instances                                         = try(each.value.instances, null)
+  sku                                               = try(each.value.sku, null)
+  custom_data                                       = try(each.value.custom_data, null)
+  do_not_run_extensions_on_overprovisioned_machines = try(each.value.do_not_run_extensions_on_overprovisioned_machines, null)
+  extensions_time_budget                            = try(each.value.do_not_run_extensions_on_overprovisioned_machines, null)
+  priority                                          = try(each.value.priority, null)
+  max_bid_price                                     = try(each.value.max_bid_price, null)
+  eviction_policy                                   = try(each.value.eviction_policy, null)
+  timezone                                          = each.value.timezone
+  health_probe_id                                   = try(each.value.health_probe_id, null)
+  overprovision                                     = try(each.value.overprovision, true)
+  platform_fault_domain_count                       = try(each.value.platform_fault_domain_count, null)
+  upgrade_mode                                      = try(each.value.upgrade_mode, null)
+  proximity_placement_group_id                      = try(each.value.proximity_placement_group_id, null)
+  scale_in_policy                                   = try(each.value.scale_in_policy, null)
+  secure_boot_enabled                               = try(each.value.secure_boot_enabled, null)
+  user_data                                         = each.value.user_date
+  single_placement_group                            = try(each.value.single_placement_group, null)
+  source_image_id                                   = try(each.value.use_custom_image, null) == true ? each.value.custom_source_image_id : null
+  vtpm_enabled                                      = try(each.value.vtpm_enabled, null)
+  zone_balance                                      = try(each.value.zone_balance, null)
+  zones                                             = tolist(try(each.value.zones, null))
+  enable_automatic_updates                          = each.value.enable_automatic_updates
+  extension_operations_enabled                      = each.value.extension_operations_enabled
+  host_group_id                                     = each.value.host_group_id
+  license_type                                      = each.value.license_type
 
-  #  lock_level = "CanNotDelete" // Do not set this value to skip lock
-}
+  #checkov:skip=CKV_AZURE_151:Ensure Encryption at host is enabled
+  encryption_at_host_enabled = try(each.value.encryption_at_host_enabled, null)
 
-module "network" {
-  source = "registry.terraform.io/libre-devops/network/azurerm"
+  #checkov:skip=CKV_AZURE_50:Ensure Virtual Machine extensions are not installed
+  provision_vm_agent = try(each.value.provision_vm_agent, null)
 
-  rg_name  = module.rg.rg_name // rg-ldo-euw-dev-build
-  location = module.rg.rg_location
-  tags     = local.tags
+  dynamic "spot_restore" {
+    for_each = each.value.spot_restore != null ? [each.value.spot_restore] : []
+    content {
 
-  vnet_name     = "vnet-${var.short}-${var.loc}-${terraform.workspace}-01" // vnet-ldo-euw-dev-01
-  vnet_location = module.network.vnet_location
-
-  address_space   = ["10.0.0.0/16"]
-  subnet_prefixes = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
-  subnet_names    = ["sn1-${module.network.vnet_name}", "sn2-${module.network.vnet_name}", "sn3-${module.network.vnet_name}"] //sn1-vnet-ldo-euw-dev-01
-  subnet_service_endpoints = {
-    "sn1-${module.network.vnet_name}" = ["Microsoft.Storage"]                   // Adds extra subnet endpoints to sn1-vnet-ldo-euw-dev-01
-    "sn2-${module.network.vnet_name}" = ["Microsoft.Storage", "Microsoft.Sql"], // Adds extra subnet endpoints to sn2-vnet-ldo-euw-dev-01
-    "sn3-${module.network.vnet_name}" = ["Microsoft.AzureActiveDirectory"]      // Adds extra subnet endpoints to sn3-vnet-ldo-euw-dev-01
+    }
   }
-}
 
-module "nsg" {
-  source = "registry.terraform.io/libre-devops/nsg/azurerm"
+  dynamic "scale_in" {
+    for_each = each.value.scale_in != null ? [each.value.scale_in] : []
+    content {
 
-  rg_name  = module.rg.rg_name
-  location = module.rg.rg_location
-  tags     = module.rg.rg_tags
+      rule                   = scale_in.value.rule
+      force_deletion_enabled = scale_in.value.force_deletion_enabled
 
-  nsg_name  = "nsg-${var.short}-${var.loc}-${terraform.workspace}-01"
-  subnet_id = element(values(module.network.subnets_ids), 0)
+    }
+  }
 
-}
 
-module "linux_scale_set" {
-  source = "registry.terraform.io/libre-devops/linux-vm-scale-sets/azurerm"
+  dynamic "gallery_application" {
+    for_each = each.value.gallery_applications != null ? each.value.gallery_applications : []
+    content {
 
-  rg_name  = module.rg.rg_name
-  location = module.rg.rg_location
-  tags     = module.rg.rg_tags
+      version_id             = gallery_application.value.version_id
+      configuration_blob_uri = gallery_application.value.configuration_blob_uri
+      order                  = gallery_application.value.order
+      tag                    = gallery_application.value.tag
+    }
+  }
 
-  ssh_public_key   = data.azurerm_ssh_public_key.mgmt_ssh_key.public_key
-  use_simple_image = true
-  vm_os_simple     = "Ubuntu20.04"
-  identity_type    = "SystemAssigned"
-  asg_name         = "asg-vmss${var.short}${var.loc}${terraform.workspace}-${var.short}-${var.loc}-${terraform.workspace}-01"
-  admin_username   = "LibreDevOpsAdmin"
+  dynamic "rolling_upgrade_policy" {
+    for_each = each.value.rolling_upgrade_policy != null ? [each.value.rolling_upgrade_policy] : []
+    content {
+      max_batch_instance_percent              = rolling_upgrade_policy.value.max_batch_instance_percent
+      max_unhealthy_instance_percent          = rolling_upgrade_policy.value.max_unhealthy_instance_percent
+      max_unhealthy_upgraded_instance_percent = rolling_upgrade_policy.value.max_unhealthy_upgraded_instance_percent
+      pause_time_between_batches              = rolling_upgrade_policy.value.pause_time_between_batches
+    }
+  }
 
-  settings = {
-    "vmss${var.short}${var.loc}${terraform.workspace}01" = {
+  # To be removed in version 4 of the provider
+  dynamic "termination_notification" {
+    for_each = each.value.termination_notification != null ? [each.value.termination_notification] : []
+    content {
+      enabled = termination_notification.value.enabled
+      timeout = termination_notification.value.timeout
+    }
+  }
 
-      sku                             = "Standard_B4ms"
-      disable_password_authentication = true
-      instances                       = 2
-      overprovision                   = false
-      zones                           = ["1"]
-      provision_vm_agent              = true
+  dynamic "additional_unattend_content" {
+    for_each = each.value.additional_unattend_content != null ? each.value.additional_unattend_content : []
+    content {
+      content = additional_unattend_content.value.content
+      setting = additional_unattend_content.value.setting
+    }
+  }
 
-      os_disk = {
-        storage_account_type = "Standard_LRS"
-        disk_size_gb         = "127"
-      }
+  dynamic "secret" {
+    for_each = each.value.secrets != null ? each.value.secrets : []
+    content {
+      key_vault_id = secret.value.key_vault_id
 
-      network_interface = {
-        network_security_group_id = module.nsg.nsg_id
-
-        ip_configuration = {
-          subnet_id = element(values(module.network.subnets_ids), 0)
+      dynamic "certificate" {
+        for_each = secret.value.certificates
+        content {
+          store = certificate.value.store
+          url   = certificate.value.url
         }
       }
+    }
+  }
 
-      admin_ssh_key = {
-        public_key = data.azurerm_ssh_public_key.mgmt_ssh_key.public_key
+
+  os_disk {
+    caching                   = try(each.value.os_disk.caching, null)
+    storage_account_type      = try(each.value.os_disk.storage_account_type, null)
+    disk_size_gb              = try(each.value.os_disk.disk_size_gb, null)
+    disk_encryption_set_id    = try(each.value.os_disk.disk_encryption_set_id, null)
+    write_accelerator_enabled = try(each.value.os_disk.write_accelerator_enabled, false)
+
+    dynamic "diff_disk_settings" {
+      for_each = each.value.os_disk.diff_disk_settings != null ? [each.value.os_disk.diff_disk_settings] : []
+      content {
+        option = diff_disk_settings.value.option
       }
+    }
+  }
+
+  dynamic "data_disk" {
+    for_each = each.value.data_disk != null ? toset(each.value.data_disk) : []
+    content {
+      lun                       = data_disk.value.lun
+      caching                   = data_disk.value.caching
+      storage_account_type      = data_disk.value.storage_account_type
+      disk_size_gb              = data_disk.value.disk_size_gb
+      write_accelerator_enabled = data_disk.value.write_accelerator_enabled
+      disk_encryption_set_id    = data_disk.value.disk_encryption_set_id
+    }
+  }
+
+  dynamic "extension" {
+    for_each = each.value.extension != null ? toset(each.value.extension) : []
+    content {
+      name                       = extension.value.name
+      publisher                  = extension.value.publisher
+      type                       = extension.value.type
+      type_handler_version       = extension.value.type_handler_version
+      auto_upgrade_minor_version = extension.value.auto_upgrade_minor_version
+      automatic_upgrade_enabled  = extension.value.automatic_upgrade_enabled
+      force_update_tag           = extension.value.force_update_tag
+      provision_after_extensions = tolist(extension.value.provision_after_extensions)
+      settings                   = extension.value.settings
+      protected_settings         = extension.value.protected_settings
+    }
+  }
+
+  dynamic "boot_diagnostics" {
+    for_each = each.value.boot_diagnostics != null && each.value.boot_diagnostics != {} ? [
+      each.value.boot_diagnostics
+    ] : []
+    content {
+      storage_account_uri = boot_diagnostics.value.storage_account_uri
+    }
+  }
+
+
+  dynamic "additional_capabilities" {
+    for_each = each.value.additional_capabilities != null && each.value.additional_capabilities != {} ? [
+      each.value.additional_capabilities
+    ] : []
+    content {
+      ultra_ssd_enabled = additional_capabilities.value.ultra_ssd_enabled
+    }
+  }
+
+  dynamic "automatic_os_upgrade_policy" {
+    for_each = each.value.automatic_os_upgrade_policy != null && each.value.automatic_os_upgrade_policy != {} ? [
+      each.value.automatic_os_upgrade_policy
+    ] : []
+    content {
+      disable_automatic_rollback  = automatic_os_upgrade_policy.value.disable_automatic_rollback
+      enable_automatic_os_upgrade = automatic_os_upgrade_policy.value.enable_automatic_os_upgrade
+    }
+  }
+
+  dynamic "automatic_instance_repair" {
+    for_each = each.value.automatic_instance_repair != null && each.value.automatic_instance_repair != {} ? [
+      each.value.automatic_instance_repair
+    ] : []
+    content {
+      enabled      = automatic_instance_repair.value.enabled
+      grace_period = automatic_instance_repair.value.grace_period
+    }
+  }
+
+
+  dynamic "network_interface" {
+    for_each = each.value.network_interface != null && each.value.network_interface != {} ? toset(each.value.network_interface) : []
+    content {
+      name                          = network_interface.value.name
+      primary                       = network_interface.value.primary
+      network_security_group_id     = network_interface.value.network_security_group_id
+      enable_accelerated_networking = network_interface.value.enable_accelerated_networking
+      enable_ip_forwarding          = network_interface.value.enable_ip_forwarding
+      dns_servers                   = tolist(network_interface.value.dns_servers)
+
+      dynamic "ip_configuration" {
+        for_each = network_interface.value.ip_configuration != null && network_interface.value.ip_configuration != {} ? toset(network_interface.value.ip_configuration) : []
+        content {
+          name                                         = ip_configuration.value.name
+          primary                                      = ip_configuration.value.primary
+          application_gateway_backend_address_pool_ids = ip_configuration.value.application_gateway_backend_address_pool_ids
+          application_security_group_ids               = toset(ip_configuration.value.application_security_group_ids)
+          load_balancer_backend_address_pool_ids       = ip_configuration.value.load_balancer_backend_address_pool_ids
+          load_balancer_inbound_nat_rules_ids          = ip_configuration.value.load_balancer_inbound_nat_rules_ids
+          version                                      = ip_configuration.value.version
+          subnet_id                                    = ip_configuration.value.subnet_id
+
+          dynamic "public_ip_address" {
+            for_each = ip_configuration.value.public_ip_address != null && ip_configuration.value.public_ip_address != {} ? [
+              ip_configuration.value.public_ip_address
+            ] : []
+            content {
+              name                    = public_ip_address.value.name
+              domain_name_label       = public_ip_address.value.domain_name_label
+              idle_timeout_in_minutes = public_ip_address.value.idle_timeout_in_minutes
+              public_ip_prefix_id     = public_ip_address.value.public_ip_prefix_id
+
+              dynamic "ip_tag" {
+                for_each = public_ip_address.value.ip_tag != null && public_ip_address.value.ip_tag != {} ? [
+                  public_ip_address.value.ip_tag
+                ] : []
+                content {
+                  type = ip_tag.value.type
+                  tag  = ip_tag.value.tag
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  dynamic "source_image_reference" {
+    for_each = try(each.value.use_simple_image, null) == true && try(each.value.use_simple_image_with_plan, null) == false && try(each.value.use_custom_image, null) == false ? [
+      1
+    ] : []
+    content {
+      publisher = coalesce(each.value.vm_os_publisher, module.os_calculator[each.value.name].calculated_value_os_publisher)
+      offer     = coalesce(each.value.vm_os_offer, module.os_calculator[each.value.name].calculated_value_os_offer)
+      sku       = coalesce(each.value.vm_os_sku, module.os_calculator[each.value.name].calculated_value_os_sku)
+      version   = coalesce(each.value.vm_os_version, "latest")
+    }
+  }
+
+
+  # Use custom image reference
+  dynamic "source_image_reference" {
+    for_each = try(each.value.use_simple_image, null) == false && try(each.value.use_simple_image_with_plan, null) == false && try(length(each.value.source_image_reference), 0) > 0 && try(length(each.value.plan), 0) == 0 && try(each.value.use_custom_image, null) == false ? [
+      1
+    ] : []
+
+    content {
+      publisher = lookup(each.value.source_image_reference, "publisher", null)
+      offer     = lookup(each.value.source_image_reference, "offer", null)
+      sku       = lookup(each.value.source_image_reference, "sku", null)
+      version   = lookup(each.value.source_image_reference, "version", null)
+    }
+  }
+
+  dynamic "source_image_reference" {
+    for_each = try(each.value.use_simple_image, null) == true && try(each.value.use_simple_image_with_plan, null) == true && try(each.value.use_custom_image, null) == false ? [
+      1
+    ] : []
+
+    content {
+      publisher = coalesce(each.value.vm_os_publisher, module.os_calculator_with_plan[each.value.name].calculated_value_os_publisher)
+      offer     = coalesce(each.value.vm_os_offer, module.os_calculator_with_plan[each.value.name].calculated_value_os_offer)
+      sku       = coalesce(each.value.vm_os_sku, module.os_calculator_with_plan[each.value.name].calculated_value_os_sku)
+      version   = coalesce(each.value.vm_os_version, "latest")
+    }
+  }
+
+
+  dynamic "plan" {
+    for_each = try(each.value.use_simple_image, null) == false && try(each.value.use_simple_image_with_plan, null) == false && try(length(each.value.plan), 0) > 0 && try(each.value.use_custom_image, null) == false ? [
+      1
+    ] : []
+
+    content {
+      name      = coalesce(each.value.vm_os_sku, module.os_calculator_with_plan[each.value.name].calculated_value_os_sku)
+      product   = coalesce(each.value.vm_os_offer, module.os_calculator_with_plan[each.value.name].calculated_value_os_offer)
+      publisher = coalesce(each.value.vm_os_publisher, module.os_calculator_with_plan[each.value.name].calculated_value_os_publisher)
+    }
+  }
+
+
+  dynamic "plan" {
+    for_each = try(each.value.use_simple_image, null) == false && try(each.value.use_simple_image_with_plan, null) == false && try(length(each.value.plan), 0) > 0 && try(each.value.use_custom_image, null) == false ? [
+      1
+    ] : []
+
+    content {
+      name      = lookup(each.value.plan, "name", null)
+      product   = lookup(each.value.plan, "product", null)
+      publisher = lookup(each.value.plan, "publisher", null)
+    }
+  }
+
+  dynamic "identity" {
+    for_each = each.value.identity_type == "SystemAssigned" ? [each.value.identity_type] : []
+    content {
+      type = each.value.identity_type
+    }
+  }
+
+  dynamic "identity" {
+    for_each = each.value.identity_type == "SystemAssigned, UserAssigned" ? [each.value.identity_type] : []
+    content {
+      type         = each.value.identity_type
+      identity_ids = try(each.value.identity_ids, [])
+    }
+  }
+
+  dynamic "identity" {
+    for_each = each.value.identity_type == "UserAssigned" ? [each.value.identity_type] : []
+    content {
+      type         = each.value.identity_type
+      identity_ids = length(try(each.value.identity_ids, [])) > 0 ? each.value.identity_ids : []
+    }
+  }
+
+  dynamic "winrm_listener" {
+    for_each = each.value.winrm_listener != null ? each.value.winrm_listener : []
+    content {
+      protocol        = winrm_listener.value.protocol
+      certificate_url = winrm_listener.value.certificate_url
     }
   }
 }
 
+module "os_calculator" {
+  source       = "libre-devops/windows-os-sku-calculator/azurerm"
+  for_each     = { for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image, null) == true }
+  vm_os_simple = each.value.vm_os_simple
+}
+
+module "os_calculator_with_plan" {
+  source       = "libre-devops/windows-os-sku-with-plan-calculator/azurerm"
+  for_each     = { for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image_with_plan, null) == true }
+  vm_os_simple = each.value.vm_os_simple
+}
+
+resource "azurerm_marketplace_agreement" "plan_acceptance_simple" {
+  for_each = {
+    for vm in var.scale_sets : vm.name => vm
+    if try(vm.use_simple_image_with_plan, null) == true && try(vm.accept_plan, null) == true && try(vm.use_custom_image, null) == false
+  }
+
+  publisher = coalesce(each.value.vm_os_publisher, module.os_calculator_with_plan[each.key].calculated_value_os_publisher)
+  offer     = coalesce(each.value.vm_os_offer, module.os_calculator_with_plan[each.key].calculated_value_os_offer)
+  plan      = coalesce(each.value.vm_os_sku, module.os_calculator_with_plan[each.key].calculated_value_os_sku)
+}
+
+resource "azurerm_marketplace_agreement" "plan_acceptance_custom" {
+  for_each = {
+    for vm in var.scale_sets : vm.name => vm
+    if try(vm.use_custom_image_with_plan, null) == true && try(vm.accept_plan, null) == true && try(vm.use_custom_image, null) == true
+  }
+
+  publisher = lookup(each.value.plan, "publisher", null)
+  offer     = lookup(each.value.plan, "product", null)
+  plan      = lookup(each.value.plan, "name", null)
+}
 ```
-## Requirements
-
-No requirements.
-
-## Providers
-
-| Name | Version |
-|------|---------|
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | n/a |
-
-## Modules
-
-| Name | Source | Version |
-|------|--------|---------|
-| <a name="module_os_calculator"></a> [os\_calculator](#module\_os\_calculator) | registry.terraform.io/libre-devops/linux-os-sku-calculator/azurerm | n/a |
-| <a name="module_os_calculator_with_plan"></a> [os\_calculator\_with\_plan](#module\_os\_calculator\_with\_plan) | registry.terraform.io/libre-devops/linux-os-sku-with-plan-calculator/azurerm | n/a |
-
-## Resources
-
-| Name | Type |
-|------|------|
-| [azurerm_application_security_group.asg](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/application_security_group) | resource |
-| [azurerm_linux_virtual_machine_scale_set.linux_vm_scale_set](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/linux_virtual_machine_scale_set) | resource |
-| [azurerm_marketplace_agreement.plan_acceptance_custom](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/marketplace_agreement) | resource |
-| [azurerm_marketplace_agreement.plan_acceptance_simple](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/marketplace_agreement) | resource |
-
-## Inputs
-
-| Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_admin_password"></a> [admin\_password](#input\_admin\_password) | The admin password to be used on the VMSS that will be deployed. The password must meet the complexity requirements of Azure. | `string` | `""` | no |
-| <a name="input_admin_username"></a> [admin\_username](#input\_admin\_username) | The admin username of the VM that will be deployed. | `string` | `"LibreDevOpsAdmin"` | no |
-| <a name="input_asg_name"></a> [asg\_name](#input\_asg\_name) | Name of the application security group | `string` | n/a | yes |
-| <a name="input_identity_ids"></a> [identity\_ids](#input\_identity\_ids) | Specifies a list of user managed identity ids to be assigned to the VM. | `list(string)` | `[]` | no |
-| <a name="input_identity_type"></a> [identity\_type](#input\_identity\_type) | The Managed Service Identity Type of this Virtual Machine. | `string` | `""` | no |
-| <a name="input_location"></a> [location](#input\_location) | The location for this resource to be put in | `string` | n/a | yes |
-| <a name="input_plan"></a> [plan](#input\_plan) | When a plan VM is used with a image not in the calculator, this will contain the variables used | `map(any)` | `{}` | no |
-| <a name="input_rg_name"></a> [rg\_name](#input\_rg\_name) | The name of the resource group, this module does not create a resource group, it is expecting the value of a resource group already exists | `string` | n/a | yes |
-| <a name="input_settings"></a> [settings](#input\_settings) | Used for the settings block | `any` | n/a | yes |
-| <a name="input_source_image_reference"></a> [source\_image\_reference](#input\_source\_image\_reference) | Whether the module should use the a custom image | `map(any)` | `{}` | no |
-| <a name="input_ssh_public_key"></a> [ssh\_public\_key](#input\_ssh\_public\_key) | The public key to be added to the admin username | `string` | n/a | yes |
-| <a name="input_tags"></a> [tags](#input\_tags) | A map of the tags to use on the resources that are deployed with this module. | `map(string)` | <pre>{<br>  "source": "terraform"<br>}</pre> | no |
-| <a name="input_use_simple_image"></a> [use\_simple\_image](#input\_use\_simple\_image) | Whether the module should use the simple OS calculator module, default is true | `bool` | `true` | no |
-| <a name="input_use_simple_image_with_plan"></a> [use\_simple\_image\_with\_plan](#input\_use\_simple\_image\_with\_plan) | If you are using the Windows OS Sku Calculator with plan, set this to true. Default is false | `bool` | `false` | no |
-| <a name="input_vm_os_id"></a> [vm\_os\_id](#input\_vm\_os\_id) | The resource ID of the image that you want to deploy if you are using a custom image.Note, need to provide is\_windows\_image = true for windows custom images. | `string` | `""` | no |
-| <a name="input_vm_os_offer"></a> [vm\_os\_offer](#input\_vm\_os\_offer) | The name of the offer of the image that you want to deploy. This is ignored when vm\_os\_id or vm\_os\_simple are provided. | `string` | `""` | no |
-| <a name="input_vm_os_publisher"></a> [vm\_os\_publisher](#input\_vm\_os\_publisher) | The name of the publisher of the image that you want to deploy. This is ignored when vm\_os\_id or vm\_os\_simple are provided. | `string` | `""` | no |
-| <a name="input_vm_os_simple"></a> [vm\_os\_simple](#input\_vm\_os\_simple) | Specify WindowsServer, to get the latest image version of the specified os.  Do not provide this value if a custom value is used for vm\_os\_publisher, vm\_os\_offer, and vm\_os\_sku. | `string` | `""` | no |
-| <a name="input_vm_os_sku"></a> [vm\_os\_sku](#input\_vm\_os\_sku) | The sku of the image that you want to deploy. This is ignored when vm\_os\_id or vm\_os\_simple are provided. | `string` | `""` | no |
-| <a name="input_vm_os_version"></a> [vm\_os\_version](#input\_vm\_os\_version) | The version of the image that you want to deploy. This is ignored when vm\_os\_id or vm\_os\_simple are provided. | `string` | `"latest"` | no |
-| <a name="input_vm_plan"></a> [vm\_plan](#input\_vm\_plan) | Used for VMs which requires a plan | `set(string)` | `null` | no |
-| <a name="input_vm_size"></a> [vm\_size](#input\_vm\_size) | Specifies the size of the virtual machine. | `string` | `"Standard_B2ms"` | no |
-
-## Outputs
-
-| Name | Description |
-|------|-------------|
-| <a name="output_ss_id"></a> [ss\_id](#output\_ss\_id) | The name of the scale set |
-| <a name="output_ss_name"></a> [ss\_name](#output\_ss\_name) | The name of the scale set |
-| <a name="output_ss_principal_id"></a> [ss\_principal\_id](#output\_ss\_principal\_id) | Client ID of system assigned managed identity if created |
-| <a name="output_unique_ss_id"></a> [unique\_ss\_id](#output\_unique\_ss\_id) | The id of the scale set |

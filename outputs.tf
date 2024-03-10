@@ -12,7 +12,7 @@ output "ss_name" {
   description = "The name of the scale set"
 }
 
-#output "ss_principal_id" {
+output "ss_principal_id" {
 #  value = {
 #    for key, value in element(azurerm_windows_virtual_machine_scale_set.windows_vm_scale_set[*], 0) : key => element(value.identity, 0).principal_id
 #  }

@@ -1,5 +1,5 @@
 resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
-  for_each            = {for vm in var.scale_sets : vm.name => vm}
+  for_each            = { for vm in var.scale_sets : vm.name => vm }
   name                = each.value.name
   resource_group_name = var.rg_name
   location            = var.location
@@ -345,13 +345,13 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
 
 module "os_calculator" {
   source       = "libre-devops/windows-os-sku-calculator/azurerm"
-  for_each     = {for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image, null) == true}
+  for_each     = { for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image, null) == true }
   vm_os_simple = each.value.vm_os_simple
 }
 
 module "os_calculator_with_plan" {
   source       = "libre-devops/windows-os-sku-with-plan-calculator/azurerm"
-  for_each     = {for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image_with_plan, null) == true}
+  for_each     = { for vm in var.scale_sets : vm.name => vm if try(vm.use_simple_image_with_plan, null) == true }
   vm_os_simple = each.value.vm_os_simple
 }
 

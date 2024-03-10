@@ -8,15 +8,9 @@ variable "rg_name" {
   description = "The resource group name to place the scale sets in"
 }
 
-variable "tags" {
-  type        = map(string)
-  description = "Tags to be applied to the resource"
-}
-
-
 variable "scale_sets" {
   description = "The scale sets list of object variable"
-  type        = list(object({
+  type = list(object({
     name                                              = string
     computer_name_prefix                              = optional(string)
     admin_username                                    = string
@@ -56,7 +50,7 @@ variable "scale_sets" {
     vm_os_simple                                      = optional(string)
     vm_os_sku                                         = optional(string)
     vm_os_version                                     = optional(string)
-    spot_restore                                      = optional(object({
+    spot_restore = optional(object({
       enabled = optional(bool)
       timeout = optional(number)
     }))
@@ -81,13 +75,13 @@ variable "scale_sets" {
       sku       = optional(string)
       version   = optional(string)
     }))
-    single_placement_group      = optional(bool)
-    source_image_id             = optional(string)
-    vtpm_enabled                = optional(bool)
-    zone_balance                = optional(bool)
-    zones                       = optional(list(string))
-    encryption_at_host_enabled  = optional(bool)
-    provision_vm_agent          = optional(bool)
+    single_placement_group     = optional(bool)
+    source_image_id            = optional(string)
+    vtpm_enabled               = optional(bool)
+    zone_balance               = optional(bool)
+    zones                      = optional(list(string))
+    encryption_at_host_enabled = optional(bool)
+    provision_vm_agent         = optional(bool)
     additional_unattend_content = optional(list(object({
       content = string
       setting = string
@@ -121,7 +115,7 @@ variable "scale_sets" {
       secure_vm_disk_encryption_set_id = optional(string)
       security_encryption_type         = optional(string)
       write_accelerator_enabled        = optional(bool)
-      diff_disk_settings               = optional(object({
+      diff_disk_settings = optional(object({
         option = string
       }))
     })
@@ -166,7 +160,7 @@ variable "scale_sets" {
       enable_accelerated_networking = optional(bool)
       enable_ip_forwarding          = optional(bool)
       dns_servers                   = optional(list(string))
-      ip_configuration              = optional(list(object({
+      ip_configuration = optional(list(object({
         name                                         = optional(string)
         primary                                      = optional(bool)
         application_gateway_backend_address_pool_ids = optional(list(string))
@@ -175,12 +169,12 @@ variable "scale_sets" {
         load_balancer_inbound_nat_rules_ids          = optional(list(string))
         version                                      = optional(string)
         subnet_id                                    = optional(string)
-        public_ip_address                            = optional(object({
+        public_ip_address = optional(object({
           name                    = optional(string)
           domain_name_label       = optional(string)
           idle_timeout_in_minutes = optional(number)
           public_ip_prefix_id     = optional(string)
-          ip_tag                  = optional(list(object({
+          ip_tag = optional(list(object({
             type = optional(string)
             tag  = optional(string)
           })))
@@ -188,4 +182,9 @@ variable "scale_sets" {
       })))
     })))
   }))
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "Tags to be applied to the resource"
 }
