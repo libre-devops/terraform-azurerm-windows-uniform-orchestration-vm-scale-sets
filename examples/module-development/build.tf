@@ -172,6 +172,20 @@ module "windows_vm_scale_set" {
         disk_size_gb         = 127
       }
 
+      extension = [
+        {
+          name                       = "run-command-${local.name}"
+          publisher                  = "Microsoft.CPlat.Core"
+          type                       = "RunCommandWindows"
+          type_handler_version       = "1.1"
+          auto_upgrade_minor_version = true
+          settings = jsonencode({
+            script = [
+              "try { Install-WindowsFeature -Name FS-FileServer -IncludeManagementTools } catch { Write-Error 'Failed to install File Services: $_'; exit 1 }"
+            ]
+          })
+        }
+      ]
     }
   ]
 }

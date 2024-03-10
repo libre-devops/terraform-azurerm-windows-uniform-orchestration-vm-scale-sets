@@ -155,6 +155,16 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
       provision_after_extensions = tolist(extension.value.provision_after_extensions)
       settings                   = extension.value.settings
       protected_settings         = extension.value.protected_settings
+
+      dynamic "protected_settings_from_key_vault" {
+        for_each = extension.value.protected_settings_from_key_vault != null ? [extension.valueprotected_settings_from_key_vault] : []
+        content {
+
+          secret_url      = ""
+          source_vault_id = ""
+        }
+      }
+
     }
   }
 
