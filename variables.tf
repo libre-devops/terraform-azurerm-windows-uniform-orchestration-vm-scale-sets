@@ -78,7 +78,7 @@ variable "scale_sets" {
       version   = optional(string)
     }))
     single_placement_group     = optional(bool)
-    source_image_id            = optional(string)
+    custom_source_image_id     = optional(string)
     vtpm_enabled               = optional(bool)
     zone_balance               = optional(bool)
     zones                      = optional(list(string))
