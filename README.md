@@ -46,6 +46,8 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
   dynamic "spot_restore" {
     for_each = each.value.spot_restore != null ? [each.value.spot_restore] : []
     content {
+      enabled = spot_restore.value.enabled
+      timeout = spot_restore.value.timeout
 
     }
   }
@@ -53,18 +55,14 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
   dynamic "scale_in" {
     for_each = each.value.scale_in != null ? [each.value.scale_in] : []
     content {
-
       rule                   = scale_in.value.rule
       force_deletion_enabled = scale_in.value.force_deletion_enabled
-
     }
   }
-
 
   dynamic "gallery_application" {
     for_each = each.value.gallery_applications != null ? each.value.gallery_applications : []
     content {
-
       version_id             = gallery_application.value.version_id
       configuration_blob_uri = gallery_application.value.configuration_blob_uri
       order                  = gallery_application.value.order
