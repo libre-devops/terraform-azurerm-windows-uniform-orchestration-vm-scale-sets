@@ -23,7 +23,6 @@ resource "azurerm_windows_virtual_machine_scale_set" "windows_vm_scale_set" {
   platform_fault_domain_count                       = try(each.value.platform_fault_domain_count, null)
   upgrade_mode                                      = try(each.value.upgrade_mode, null)
   proximity_placement_group_id                      = try(each.value.proximity_placement_group_id, null)
-  scale_in_policy                                   = try(each.value.scale_in_policy, null)
   secure_boot_enabled                               = try(each.value.secure_boot_enabled, null)
   user_data                                         = each.value.user_date
   single_placement_group                            = try(each.value.single_placement_group, null)

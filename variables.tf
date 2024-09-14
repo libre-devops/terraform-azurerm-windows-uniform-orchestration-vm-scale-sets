@@ -38,7 +38,6 @@ variable "scale_sets" {
     platform_fault_domain_count                       = optional(number)
     upgrade_mode                                      = optional(string)
     proximity_placement_group_id                      = optional(string)
-    scale_in_policy                                   = optional(string)
     secure_boot_enabled                               = optional(bool)
     use_custom_image                                  = optional(bool, false)
     host_group_id                                     = optional(string)
