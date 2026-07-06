@@ -224,3 +224,38 @@ run "rejects_unknown_catalog_key" {
 
   expect_failures = [azurerm_windows_virtual_machine_scale_set.this]
 }
+
+# Validation: automatic updates and automatic OS upgrades are mutually exclusive.
+run "rejects_auto_updates_with_auto_os_upgrade" {
+  command = plan
+
+  variables {
+    scale_sets = {
+      "vmssldoukststs01" = {
+        sku                  = "Standard_D2lds_v6"
+        instances            = 1
+        source_image_simple  = "WindowsServer2022AzureEdition"
+        admin_username       = "azureadmin"
+        admin_password       = "Sup3rS3cret!!Sup3r"
+        computer_name_prefix = "uniwin"
+
+        automatic_os_upgrade_policy = {}
+        extensions = {
+          "HealthExtension" = {
+            publisher            = "Microsoft.ManagedServices"
+            type                 = "ApplicationHealthWindows"
+            type_handler_version = "1.0"
+          }
+        }
+
+        network_interfaces = {
+          "nic" = {
+            ip_configurations = { "internal" = { subnet_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-ldo-uks-tst-01/providers/Microsoft.Network/virtualNetworks/vnet-ldo-uks-tst-01/subnets/snet-app-vnet-ldo-uks-tst-01" } }
+          }
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.scale_sets]
+}

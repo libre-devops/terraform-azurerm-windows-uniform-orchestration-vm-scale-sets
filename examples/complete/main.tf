@@ -118,6 +118,8 @@ module "windows_vmss" {
       upgrade_mode  = "Automatic"
       overprovision = false
 
+      # Automatic OS-image upgrades replace in-guest automatic updates; Azure rejects both at once.
+      enable_automatic_updates    = false
       automatic_os_upgrade_policy = {}
 
       os_disk = { storage_account_type = "Premium_LRS", disk_size_gb = 128 }

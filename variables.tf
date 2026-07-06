@@ -258,6 +258,15 @@ variable "scale_sets" {
   }
 
   validation {
+    # try() guards the null side: 1.9 evaluates both || operands.
+    condition = alltrue([
+      for s in values(var.scale_sets) :
+      !try(s.automatic_os_upgrade_policy.enable_automatic_os_upgrade, false) || !s.enable_automatic_updates
+    ])
+    error_message = "Azure rejects enable_automatic_updates = true together with automatic OS upgrades (enableAutomaticUpdates cannot be true when enableAutomaticOSUpgrade is true): set enable_automatic_updates = false on scale sets with an automatic_os_upgrade_policy."
+  }
+
+  validation {
     condition = alltrue([
       for s in values(var.scale_sets) :
       s.priority == "Spot" || (s.eviction_policy == null && s.max_bid_price == null && s.spot_restore == null)
