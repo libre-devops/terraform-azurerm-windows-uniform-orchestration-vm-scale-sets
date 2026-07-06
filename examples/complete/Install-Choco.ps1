@@ -1,5 +1,5 @@
-# Runs on every instance at first boot via the CustomScriptExtension (encoded into
-# commandToExecute with textencodebase64, PowerShell's -EncodedCommand wants UTF-16LE).
+# Runs on every instance at first boot via the CustomScriptExtension (downloaded through fileUris
+# and executed with -File: inlining via -EncodedCommand hits cmd.exe's 8191-character limit).
 # Bootstraps Chocolatey and a couple of everyday tools, wrapped in try/catch and retries with
 # exponential backoff, because first-boot networking and the community feed are both flaky at the
 # worst moments.

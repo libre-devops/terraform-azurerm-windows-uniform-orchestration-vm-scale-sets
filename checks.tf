@@ -7,11 +7,16 @@ check "has_scale_sets" {
   }
 }
 
-# Turning off automatic updates on an unmanaged fleet is worth seeing.
+# Turning off automatic updates without another patching story is worth seeing. An automatic OS
+# upgrade policy IS a patching story (Azure requires automatic updates off alongside it), so that
+# combination stays quiet.
 check "automatic_updates_optouts_are_visible" {
   assert {
-    condition     = alltrue([for s in values(var.scale_sets) : s.enable_automatic_updates])
-    error_message = "At least one scale set turns off automatic updates: pair that with an explicit patching story."
+    condition = alltrue([
+      for s in values(var.scale_sets) :
+      s.enable_automatic_updates || s.automatic_os_upgrade_policy != null
+    ])
+    error_message = "At least one scale set turns off automatic updates with no automatic OS upgrade policy: pair the opt-out with an explicit patching story."
   }
 }
 

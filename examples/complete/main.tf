@@ -258,13 +258,16 @@ module "windows_vmss" {
         }
         # First-boot setup the Windows way (no cloud-init on marketplace Windows images): a
         # CustomScriptExtension bootstrapping Chocolatey and everyday tools from Install-Choco.ps1.
-        # PowerShell's -EncodedCommand wants UTF-16LE, which is what textencodebase64 provides.
+        # The script is downloaded via fileUris (this repo is public) rather than inlined with
+        # -EncodedCommand: cmd.exe caps the command line at 8191 characters and a script of this
+        # size blows through it ("The command line is too long", proven live).
         "InstallChoco" = {
           publisher            = "Microsoft.Compute"
           type                 = "CustomScriptExtension"
           type_handler_version = "1.10"
           settings = jsonencode({
-            commandToExecute = "powershell.exe -ExecutionPolicy Bypass -EncodedCommand ${textencodebase64(file("${path.module}/Install-Choco.ps1"), "UTF-16LE")}"
+            fileUris         = ["https://raw.githubusercontent.com/libre-devops/terraform-azurerm-windows-uniform-orchestration-vm-scale-sets/main/examples/complete/Install-Choco.ps1"]
+            commandToExecute = "powershell.exe -ExecutionPolicy Bypass -File Install-Choco.ps1"
           })
         }
       }
