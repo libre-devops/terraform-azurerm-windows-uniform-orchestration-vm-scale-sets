@@ -38,7 +38,7 @@ not a variable. Run it with `just e2e complete`, which applies the stack then al
 
 | Name | Version |
 |------|---------|
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.5.0, < 4.0.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | 3.9.0 |
 
 ## Modules
 

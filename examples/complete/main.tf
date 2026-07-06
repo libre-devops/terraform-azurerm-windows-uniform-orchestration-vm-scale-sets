@@ -92,7 +92,8 @@ resource "random_password" "admin" {
 
 # Complete call: the full appliable surface on one uniform Windows scale set: calculated subnets,
 # load balancer pool membership, an Application Health extension with automatic instance repair
-# and an automatic OS upgrade policy, a WinRM HTTP listener, a scale-in policy, termination
+# and an automatic OS upgrade policy, a Chocolatey bootstrap via CustomScriptExtension, a WinRM
+# HTTP listener, a scale-in policy, termination
 # notification, a data disk, a timezone, and accelerated networking. Spot with spot_restore,
 # rolling upgrades, additional unattend content, and Key Vault certificates are covered by the
 # mocked tests.
@@ -148,6 +149,17 @@ module "windows_vmss" {
           type                 = "ApplicationHealthWindows"
           type_handler_version = "1.0"
           settings             = jsonencode({ protocol = "tcp", port = 8080 })
+        }
+        # First-boot setup the Windows way (no cloud-init on marketplace Windows images): a
+        # CustomScriptExtension bootstrapping Chocolatey and everyday tools from Install-Choco.ps1.
+        # PowerShell's -EncodedCommand wants UTF-16LE, which is what textencodebase64 provides.
+        "InstallChoco" = {
+          publisher            = "Microsoft.Compute"
+          type                 = "CustomScriptExtension"
+          type_handler_version = "1.10"
+          settings = jsonencode({
+            commandToExecute = "powershell.exe -ExecutionPolicy Bypass -EncodedCommand ${textencodebase64(file("${path.module}/Install-Choco.ps1"), "UTF-16LE")}"
+          })
         }
       }
 
