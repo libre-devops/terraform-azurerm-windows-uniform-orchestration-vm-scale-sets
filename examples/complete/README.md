@@ -14,7 +14,9 @@
 
 # Complete example
 
-The full appliable surface: subnets carved by the subnet-calculator module (sequential,
+The full appliable surface: an NSG with explicit allows above the DenyAllInbound baseline
+(probes, app port, WinRM), explicit egress via a NAT gateway (subnets are private by default,
+so the first-boot Chocolatey bootstrap depends on it), subnets carved by the subnet-calculator module (sequential,
 non-overlapping, convention-named, dropped straight into the network module), a uniform Windows
 scale set joined to a private load balancer backend pool with an Application Health extension,
 automatic instance repair, an automatic OS upgrade policy, a WinRM HTTP listener, a scale-in
@@ -44,8 +46,11 @@ not a variable. Run it with `just e2e complete`, which applies the stack then al
 
 | Name | Source | Version |
 |------|--------|---------|
+| <a name="module_nat_gateway"></a> [nat\_gateway](#module\_nat\_gateway) | libre-devops/nat-gateway/azurerm | ~> 4.0 |
 | <a name="module_network"></a> [network](#module\_network) | libre-devops/network/azurerm | ~> 4.0 |
+| <a name="module_nsg"></a> [nsg](#module\_nsg) | libre-devops/nsg/azurerm | ~> 4.0 |
 | <a name="module_private_lb"></a> [private\_lb](#module\_private\_lb) | libre-devops/private-lb/azurerm | ~> 4.0 |
+| <a name="module_public_ip"></a> [public\_ip](#module\_public\_ip) | libre-devops/public-ip/azurerm | ~> 4.0 |
 | <a name="module_rg"></a> [rg](#module\_rg) | libre-devops/rg/azurerm | ~> 4.0 |
 | <a name="module_subnet_calculator"></a> [subnet\_calculator](#module\_subnet\_calculator) | libre-devops/subnet-calculator/azurerm | ~> 4.0 |
 | <a name="module_tags"></a> [tags](#module\_tags) | libre-devops/tags/azurerm | ~> 4.0 |

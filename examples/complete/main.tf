@@ -4,6 +4,9 @@ locals {
   vnet_name = "vnet-${var.short}-${var.loc}-${terraform.workspace}-002"
   lb_name   = "lbi-${var.short}-${var.loc}-${terraform.workspace}-002"
   vmss_name = "vmss${var.short}${var.loc}${terraform.workspace}002"
+  pip_name  = "pip-${var.short}-${var.loc}-${terraform.workspace}-002"
+  ng_name   = "ng-${var.short}-${var.loc}-${terraform.workspace}-002"
+  nsg_name  = "nsg-${var.short}-${var.loc}-${terraform.workspace}-002"
   snet_app  = "snet-app-${local.vnet_name}"
 }
 
@@ -53,6 +56,86 @@ module "network" {
   subnets       = module.subnet_calculator.network_subnets
 }
 
+# Subnets are private by default (default_outbound_access_enabled = false in the network module),
+# so instance egress is explicit: a NAT gateway on the app subnet. The first-boot Chocolatey and
+# PSGallery downloads depend on it.
+module "public_ip" {
+  source  = "libre-devops/public-ip/azurerm"
+  version = "~> 4.0"
+
+  resource_group_id = module.rg.ids[local.rg_name]
+  location          = local.location
+  tags              = module.tags.tags
+
+  public_ips = { (local.pip_name) = {} }
+}
+
+module "nat_gateway" {
+  source  = "libre-devops/nat-gateway/azurerm"
+  version = "~> 4.0"
+
+  resource_group_id = module.rg.ids[local.rg_name]
+  location          = local.location
+  tags              = module.tags.tags
+
+  name = local.ng_name
+
+  public_ip_associations = { (local.pip_name) = module.public_ip.public_ip_ids[local.pip_name] }
+  subnet_associations    = { (local.snet_app) = module.network.subnet_ids[local.snet_app] }
+}
+
+# The NSG's baseline is an explicit DenyAllInbound at 4096 (never rely on the built-in rules), so
+# the example adds its own allows above it: load balancer health probes, the app port the balancer
+# forwards, and WinRM from inside the vnet.
+module "nsg" {
+  source  = "libre-devops/nsg/azurerm"
+  version = "~> 4.0"
+
+  resource_group_id = module.rg.ids[local.rg_name]
+  location          = local.location
+  tags              = module.tags.tags
+
+  name = local.nsg_name
+
+  subnet_associations = { (local.snet_app) = module.network.subnet_ids[local.snet_app] }
+
+  security_rules = {
+    "AllowAzureLoadBalancerInbound" = {
+      priority                   = 200
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+      source_address_prefix      = "AzureLoadBalancer"
+      destination_address_prefix = "*"
+      description                = "Health probes from the platform load balancer."
+    }
+    "AllowAppFromVnet" = {
+      priority                   = 210
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "8080"
+      source_address_prefix      = "VirtualNetwork"
+      destination_address_prefix = "*"
+      description                = "App traffic forwarded by the internal load balancer."
+    }
+    "AllowWinRmFromVnet" = {
+      priority                   = 220
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      destination_port_range     = "5985"
+      source_port_range          = "*"
+      source_address_prefix      = "VirtualNetwork"
+      destination_address_prefix = "*"
+      description                = "WinRM (HTTP listener) from inside the vnet."
+    }
+  }
+}
+
 # An internal load balancer whose backend pool the scale set joins.
 module "private_lb" {
   source  = "libre-devops/private-lb/azurerm"
@@ -99,6 +182,10 @@ resource "random_password" "admin" {
 # mocked tests.
 module "windows_vmss" {
   source = "../../"
+
+  # First boot needs egress and the locked-down subnet: wait for the NAT gateway and NSG
+  # associations before creating instances.
+  depends_on = [module.nat_gateway, module.nsg]
 
   resource_group_id = module.rg.ids[local.rg_name]
   location          = local.location

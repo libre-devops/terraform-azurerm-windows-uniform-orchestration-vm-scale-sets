@@ -14,7 +14,9 @@
 
 # Complete example
 
-The full appliable surface: subnets carved by the subnet-calculator module (sequential,
+The full appliable surface: an NSG with explicit allows above the DenyAllInbound baseline
+(probes, app port, WinRM), explicit egress via a NAT gateway (subnets are private by default,
+so the first-boot Chocolatey bootstrap depends on it), subnets carved by the subnet-calculator module (sequential,
 non-overlapping, convention-named, dropped straight into the network module), a uniform Windows
 scale set joined to a private load balancer backend pool with an Application Health extension,
 automatic instance repair, an automatic OS upgrade policy, a WinRM HTTP listener, a scale-in
