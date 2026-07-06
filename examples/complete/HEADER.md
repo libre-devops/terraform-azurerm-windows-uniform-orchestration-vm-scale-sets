@@ -15,7 +15,7 @@
 # Complete example
 
 The full appliable surface: an NSG with explicit allows above the DenyAllInbound baseline
-(probes, app port, WinRM), explicit egress via a NAT gateway (subnets are private by default,
+(probes, app port, WinRM, and explicit HTTPS internet egress rather than the built-in outbound rule), explicit egress via a NAT gateway (subnets are private by default,
 so the first-boot Chocolatey bootstrap depends on it), subnets carved by the subnet-calculator module (sequential,
 non-overlapping, convention-named, dropped straight into the network module), a uniform Windows
 scale set joined to a private load balancer backend pool with an Application Health extension,

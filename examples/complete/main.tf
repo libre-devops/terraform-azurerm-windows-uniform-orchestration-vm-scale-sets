@@ -122,6 +122,20 @@ module "nsg" {
       destination_address_prefix = "*"
       description                = "App traffic forwarded by the internal load balancer."
     }
+    # The bootstrap's internet egress is explicit too: the defaults deny nothing outbound (the
+    # curated allows exist for consumers who add their own deny), but depending on the built-in
+    # AllowInternetOutBound is exactly the reliance on defaults this baseline exists to avoid.
+    "AllowHttpsInternetOutbound" = {
+      priority                   = 300
+      direction                  = "Outbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "443"
+      source_address_prefix      = "*"
+      destination_address_prefix = "Internet"
+      description                = "First-boot Chocolatey and PSGallery downloads via the NAT gateway."
+    }
     "AllowWinRmFromVnet" = {
       priority                   = 220
       direction                  = "Inbound"
