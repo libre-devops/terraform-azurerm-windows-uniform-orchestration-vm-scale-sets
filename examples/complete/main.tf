@@ -109,6 +109,11 @@ module "windows_vmss" {
       sku       = "Standard_D2lds_v6"
       instances = 1
 
+      # Zone-redundant is the module default, but this dev subscription's v6 capacity is thin and
+      # zone-spread plus accelerated networking has hit OverconstrainedZonalAllocationRequest live,
+      # so the example pins a single zone (also demonstrating the zones override).
+      zones = ["1"]
+
       source_image_simple = "WindowsServer2022AzureEdition"
 
       admin_username       = "azureadmin"
